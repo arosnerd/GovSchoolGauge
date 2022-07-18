@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from imutils import contours
 import matplotlib.pyplot as plt
+
 import time
 start_time = time.time()
 
@@ -24,16 +25,8 @@ blurred = cv2.blur(~mask, (20, 20))
 #Converts Gaussian blurred image to grayscale and applies a threshold to find contours and draw them on the image
 grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 _, thresh = cv2.threshold(grey, 140, 255, cv2.THRESH_BINARY)
-contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-#iterates through list of contours and draws contours
-cont_out = image.copy()
-for contour in contours:
-    approx = cv2.approxPolyDP(
-        contour, 0.01 * cv2.arcLength(contour, True), True)
-    cv2.drawContours(cont_out, [contour], 0, (0, 0, 255), 5)
-
-#Uses Hough Circles to find the circle at the center of needle
+#Uses Hough Circles to find the circle at the center of needle using the black mask, and draws it
 output = image.copy()
 rows = blurred.shape[0]
 circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, rows / 8, param1=100, param2=30, minRadius=0, maxRadius=0)
@@ -48,24 +41,20 @@ if circles is not None:
         cv2.circle(output, center, 1, (255, 255, 0), 3)
         # circle outline
         radius = i[2]
-        circ_rad = radius*7
         cv2.circle(output, center, radius, (0, 0, 255), 3)
-# cv2.imshow("detected circles", output)
-# cv2.waitKey(0)
+        circ_rad = radius*7
 
-test = output.copy()
 blank = np.zeros(image.shape[:2], dtype=np.uint8)
 cv2.circle(blank, (circ_col, circ_row), circ_rad, 255, thickness=1)
 ind_row, ind_col = np.nonzero(blank)
 ind_row = np.array(ind_row)
+ind_row_rev = [image.shape[0] - row for row in ind_row]
+original_coord = list(zip(ind_col, ind_row_rev))
 ind_col = np.array(ind_col)
 for col,row in zip(ind_col, ind_row):
         cv2.circle(blank, (col,row), 1, 255, thickness=1)
-        cv2.circle(test, (col,row), 1, 255, thickness=1)
-# cv2.imshow('blank', blank)
-# cv2.waitKey(0)
-# cv2.imshow('blank', test)
-# cv2.waitKey(0)
+
+df = pd.DataFrame({"indices":list(zip(ind_col, ind_row)), "orig":original_coord})
 
 imcopy = image.copy()
 stds = []
@@ -86,9 +75,28 @@ for col,row in zip(ind_col, ind_row):
     stds.append(np.std(grays))
     means.append(np.mean(grays))
     gray_values.append(grays)
-print("Process finished --- %s seconds ---" % (time.time() - start_time))        
-# cv2.imshow('lines',imcopy)
-# cv2.waitKey(0)
+df["stds"] = stds
+df["means"] = means
+df["gray_values"] = gray_values
+
+min_mean = df["means"].min()
+(pt_col, pt_row) = df.loc[df["means"] == min_mean, "indices"].values[0]
+imcopy = image.copy()
+cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=1)  # Draw needle radial line
+print("Process finished --- %s seconds ---" % (time.time() - start_time))
+
+
+'''
+fig, ax = plt.subplots()
+ax2 = ax.twinx()
+ax2.scatter(df["clock_angle"], df["stds"], color="r", alpha=0.3, label="pixel std. dev.")
+ax.scatter(df["clock_angle"], df["means"], label="pixel mean", color="b", alpha=0.3)
+ax2.legend(loc="lower center")
+ax.legend(loc="lower left")
+ax.set_xlabel("Clock Angle of Radial Line")
+ax.set_ylabel("Metric Value along Radial Line")
+ax.set_title("Locating Gauge Needle from Radial Line Pixel Values", fontsize=16)
+'''        
 
 #show all plots at once
 cv2.imshow('Input', image)
@@ -101,20 +109,17 @@ cv2.imshow('Blurred Mask',blurred)
 cv2.waitKey(0)
   
 cv2.imshow('Threshold',thresh)
-cv2.waitKey(0)   
-cv2.imshow('Contours', cont_out)
 cv2.waitKey(0)
 
 cv2.imshow("detected circles", output)
 cv2.waitKey(0)
 
-cv2.imshow('blank', blank)
-cv2.waitKey(0)
-cv2.imshow('blank', test)
-cv2.waitKey(0)
-
 cv2.imshow('lines',imcopy)
 cv2.waitKey(0)
+
+cv2.imshow("result",imcopy)
+cv2.waitKey(0)
+
 '''
 minLineLength = 60
 maxLineGap = 0
