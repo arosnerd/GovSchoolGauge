@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from imutils import contours
 import matplotlib.pyplot as plt
+import math
 
 import time
 start_time = time.time()
@@ -17,6 +18,13 @@ img_hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
 #Sets the upper and lower bounds for the mask, and masks black
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 65])
 mask = cv2.inRange(img_hsv, lower_black, upper_black)
+cv2.imshow('Mask',mask)
+cv2.waitKey(0)
+
+lower_black, upper_black = np.array([0, 0, 0]), np.array([250, 255, 105])
+mask2 = cv2.inRange(img_hsv, lower_black, upper_black)
+cv2.imshow('Mask2',mask2)
+cv2.waitKey(0)
 
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
@@ -25,6 +33,7 @@ blurred = cv2.blur(~mask, (20, 20))
 #Converts Gaussian blurred image to grayscale and applies a threshold to find contours and draw them on the image
 grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 _, thresh = cv2.threshold(grey, 140, 255, cv2.THRESH_BINARY)
+blurred2 = cv2.blur(thresh, (20, 20))
 
 #Uses Hough Circles to find the circle at the center of needle using the black mask, and draws it
 output = image.copy()
@@ -48,23 +57,31 @@ blank = np.zeros(image.shape[:2], dtype=np.uint8)
 cv2.circle(blank, (circ_col, circ_row), circ_rad, 255, thickness=1)
 ind_row, ind_col = np.nonzero(blank)
 ind_row = np.array(ind_row)
-ind_row_rev = [image.shape[0] - row for row in ind_row]
-original_coord = list(zip(ind_col, ind_row_rev))
 ind_col = np.array(ind_col)
 for col,row in zip(ind_col, ind_row):
         cv2.circle(blank, (col,row), 1, 255, thickness=1)
 
-df = pd.DataFrame({"indices":list(zip(ind_col, ind_row)), "orig":original_coord})
-
-imcopy = image.copy()
+df = pd.DataFrame({"indices":list(zip(ind_col, ind_row))})
+first_col = ind_col[0]
+first_row = ind_row[0]
+top_dist = math.sqrt((circ_col-first_col)**2 + (circ_row-first_row)**2)
 stds = []
 means = []
 gray_values = []
+angles = []
 i = 0
+lines = image.copy()
 for col,row in zip(ind_col, ind_row):
     blank = np.zeros(image.shape[:2], dtype=np.uint8)
+    top_point_dist = math.sqrt((col-first_col)**2 + (row-first_row)**2)
+    angle = math.acos((((2*top_dist**2)-top_point_dist**2)/(2*top_dist**2)))
+    angle = angle*(180/(math.pi))
+    if col < first_col:
+        angle = (angle * -1)+360
+    angles.append(angle)
+    #visualization
     if i%5 == 0:
-        cv2.line(imcopy, (circ_col, circ_row), (col,row), 255, thickness=1)
+        cv2.line(lines, (circ_col, circ_row), (col,row), 255, thickness=1)
     i = i+1
     cv2.line(blank, (circ_col, circ_row), (col, row), 255, thickness=2)  # Draw function wants center point in (col, row) order like coordinates
     ind_row, ind_col = np.nonzero(blank)
@@ -76,27 +93,28 @@ for col,row in zip(ind_col, ind_row):
     means.append(np.mean(grays))
     gray_values.append(grays)
 df["stds"] = stds
+df["angles"] = angles
 df["means"] = means
 df["gray_values"] = gray_values
 
 min_mean = df["means"].min()
 (pt_col, pt_row) = df.loc[df["means"] == min_mean, "indices"].values[0]
 imcopy = image.copy()
-cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=1)  # Draw needle radial line
-print("Process finished --- %s seconds ---" % (time.time() - start_time))
+cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=3)  # Draw needle radial line
 
-
-'''
+#print("Process finished --- %s seconds ---" % (time.time() - start_time))  
+#Plot mean pixel value as a function of needle "clock angle" (zero degrees is 12 o'clock)
 fig, ax = plt.subplots()
 ax2 = ax.twinx()
-ax2.scatter(df["clock_angle"], df["stds"], color="r", alpha=0.3, label="pixel std. dev.")
-ax.scatter(df["clock_angle"], df["means"], label="pixel mean", color="b", alpha=0.3)
+ax2.scatter(df["angles"], df["stds"], color="r", alpha=0.3, label="pixel std. dev.")
+ax.scatter(df["angles"], df["means"], label="pixel mean", color="b", alpha=0.3)
 ax2.legend(loc="lower center")
 ax.legend(loc="lower left")
-ax.set_xlabel("Clock Angle of Radial Line")
+ax.set_xlabel("angle")
 ax.set_ylabel("Metric Value along Radial Line")
 ax.set_title("Locating Gauge Needle from Radial Line Pixel Values", fontsize=16)
-'''        
+plt.show()
+
 
 #show all plots at once
 cv2.imshow('Input', image)
@@ -105,7 +123,13 @@ cv2.waitKey(0)
 cv2.imshow('Mask',mask)
 cv2.waitKey(0)
 
+cv2.imshow('Mask',mask2)
+cv2.waitKey(0)
+
 cv2.imshow('Blurred Mask',blurred)
+cv2.waitKey(0)
+
+cv2.imshow('Blurred Thresh',blurred2)
 cv2.waitKey(0)
   
 cv2.imshow('Threshold',thresh)
@@ -114,7 +138,7 @@ cv2.waitKey(0)
 cv2.imshow("detected circles", output)
 cv2.waitKey(0)
 
-cv2.imshow('lines',imcopy)
+cv2.imshow('lines',lines)
 cv2.waitKey(0)
 
 cv2.imshow("result",imcopy)
