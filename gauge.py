@@ -7,8 +7,8 @@ import time
 start_time = time.time()
 
 image = cv2.imread("screenshot.png")
-cv2.imshow('Input', image)
-cv2.waitKey(0)
+# cv2.imshow('Input', image)
+# cv2.waitKey(0)
 #fig, ax = plt.subplots(figsize=(6, 6))
 
 #Reduces noise, converts image to HSV, and masks black.
@@ -17,14 +17,14 @@ img_hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
 #Sets the upper and lower bounds for the mask
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 65])
 mask = cv2.inRange(img_hsv, lower_black, upper_black)
-cv2.imshow('Mask',mask)
-cv2.waitKey(0)
+# cv2.imshow('Mask',mask)
+# cv2.waitKey(0)
 
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
 blurred = cv2.blur(~mask, (20, 20))
-cv2.imshow('Blurred Mask',blurred)
-cv2.waitKey(0)
+# cv2.imshow('Blurred Mask',blurred)
+# cv2.waitKey(0)
 
 #Converts Gaussian blurred image to grayscale and applies a threshold to find contours and draw them on the image
 grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -39,12 +39,12 @@ for contour in contours:
     cv2.drawContours(cont_out, [contour], 0, (0, 0, 255), 5)
 
 blurred2 = cv2.blur(thresh, (20, 20))
-cv2.imshow('Blur Threshold',blurred2)
-cv2.waitKey(0)   
-cv2.imshow('Threshold',thresh)
-cv2.waitKey(0)   
-cv2.imshow('Contours', cont_out)
-cv2.waitKey(0)
+# cv2.imshow('Blur Threshold',blurred2)
+# cv2.waitKey(0)   
+# cv2.imshow('Threshold',thresh)
+# cv2.waitKey(0)   
+# cv2.imshow('Contours', cont_out)
+# cv2.waitKey(0)
 
 #Uses Hough Circles to find the circle at the center of 
 output = image.copy()
@@ -64,8 +64,8 @@ if circles is not None:
         radius = i[2]
         circ_rad = radius*7
         cv2.circle(output, center, radius, (0, 0, 255), 3)
-cv2.imshow("detected circles", output)
-cv2.waitKey(0)
+# cv2.imshow("detected circles", output)
+# cv2.waitKey(0)
 
 test = output.copy()
 blank = np.zeros(image.shape[:2], dtype=np.uint8)
@@ -75,17 +75,37 @@ print(ind_row)
 ind_row = np.array(ind_row)
 print(ind_row[0])
 ind_col = np.array(ind_col)
-for a,b in zip(ind_col, ind_row):
-    cv2.circle(blank, (a,b), 1, 255, thickness=1)
-    cv2.circle(test, (a,b), 1, 255, thickness=1)
-
+for col,row in zip(ind_col, ind_row):
+        cv2.circle(blank, (col,row), 1, 255, thickness=1)
+        cv2.circle(test, (col,row), 1, 255, thickness=1)
 cv2.imshow('blank', blank)
 cv2.waitKey(0)
-
 cv2.imshow('blank', test)
 cv2.waitKey(0)
 
-
+imcopy = image.copy()
+stds = []
+means = []
+gray_values = []
+i = 0
+for col,row in zip(ind_col, ind_row):
+    blank = np.zeros(image.shape[:2], dtype=np.uint8)
+    if i%5 == 0:
+        cv2.line(imcopy, (circ_col, circ_row), (col,row), 255, thickness=1)
+    i = i+1
+    cv2.line(blank, (circ_col, circ_row), (col, row), 255, thickness=2)  # Draw function wants center point in (col, row) order like coordinates
+    ind_row, ind_col = np.nonzero(blank)
+    b = image[:, :, 0][ind_row, ind_col]
+    g = image[:, :, 1][ind_row, ind_col]
+    r = image[:, :, 2][ind_row, ind_col]
+    grays = (b.astype(int) + g.astype(int) + r.astype(int))/3  # Compute grayscale with naive equation
+    stds.append(np.std(grays))
+    means.append(np.mean(grays))
+    gray_values.append(grays)
+print(len(stds))
+#print("Process finished --- %s seconds ---" % (time.time() - start_time))        
+cv2.imshow('lines',imcopy)
+cv2.waitKey(0)
 '''
 minLineLength = 60
 maxLineGap = 0
@@ -141,8 +161,6 @@ for (pt_col, pt_row_rev) in df["orig"].values:
     stds.append(np.std(grays))
     means.append(np.mean(grays))
     gray_values.append(grays)
-
-#print("Process finished --- %s seconds ---" % (time.time() - start_time))
 
 #below is meant for full image
 
