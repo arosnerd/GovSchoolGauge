@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import time
 start_time = time.time()
 
-image = cv2.imread("screenshot3.png")
+image = cv2.imread("screenshot.png")
 cv2.imshow('Input', image)
 cv2.waitKey(0)
 #fig, ax = plt.subplots(figsize=(6, 6))
@@ -67,6 +67,26 @@ if circles is not None:
 cv2.imshow("detected circles", output)
 cv2.waitKey(0)
 
+test = output.copy()
+blank = np.zeros(image.shape[:2], dtype=np.uint8)
+cv2.circle(blank, (circ_col, circ_row), circ_rad, 255, thickness=1)
+ind_row, ind_col = np.nonzero(blank)
+print(ind_row)
+ind_row = np.array(ind_row)
+print(ind_row[0])
+ind_col = np.array(ind_col)
+for a,b in zip(ind_col, ind_row):
+    cv2.circle(blank, (a,b), 1, 255, thickness=1)
+    cv2.circle(test, (a,b), 1, 255, thickness=1)
+
+cv2.imshow('blank', blank)
+cv2.waitKey(0)
+
+cv2.imshow('blank', test)
+cv2.waitKey(0)
+
+
+'''
 minLineLength = 60
 maxLineGap = 0
 lines = cv2.HoughLinesP(image=blurred, rho=50, theta=np.pi / 180, threshold=100,minLineLength=minLineLength, maxLineGap=0)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
@@ -76,6 +96,7 @@ for i in range(0, len(lines)):
         cv2.line(output, (x1, y1), (x2, y2), (0, 255, 0), 2)
 cv2.imshow("lines",output)
 cv2.waitKey(0)
+'''
 
 '''
 imcopy = output.copy()
