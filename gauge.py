@@ -18,23 +18,10 @@ img_hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
 #Sets the upper and lower bounds for the mask, and masks black
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 65])
 mask = cv2.inRange(img_hsv, lower_black, upper_black)
-# cv2.imshow('Mask',mask)
-# cv2.waitKey(0)
-
-lower_black, upper_black = np.array([0, 0, 0]), np.array([250, 255, 125])
-mask2 = cv2.inRange(img_hsv, lower_black, upper_black)
-# cv2.imshow('Mask2',mask2)
-# cv2.waitKey(0)
 
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
 blurred = cv2.blur(~mask, (20, 20))
-
-#Converts Gaussian blurred image to grayscale and applies a threshold to find contours and draw them on the image
-grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-_, thresh = cv2.threshold(grey, 140, 255, cv2.THRESH_BINARY)
-_, thresh2 = cv2.threshold(grey, 180, 255, cv2.THRESH_BINARY)
-blurred2 = cv2.blur(thresh, (20, 20))
 
 #Uses Hough Circles to find the circle at the center of needle using the black mask, and draws it
 output = image.copy()
@@ -153,12 +140,6 @@ ax.set_title("Locating Gauge Needle from Radial Line Pixel Values", fontsize=16)
 
 # cv2.imshow('Blurred Thresh',blurred2)
 # cv2.waitKey(0)
-  
-cv2.imshow('Threshold',thresh)
-cv2.waitKey(0)
-
-cv2.imshow('Threshold',thresh2)
-cv2.waitKey(0)
 
 # cv2.imshow("detected circles", output)
 # cv2.waitKey(0)
@@ -170,17 +151,6 @@ cv2.imshow("result",imcopy)
 cv2.waitKey(0)
 
 plt.show()
-'''
-minLineLength = 60
-maxLineGap = 0
-lines = cv2.HoughLinesP(image=blurred, rho=50, theta=np.pi / 180, threshold=100,minLineLength=minLineLength, maxLineGap=0)  # rho is set to 3 to detect more lines, easier to get more then filter them out later
-#for testing purposes, show all found lines
-for i in range(0, len(lines)):
-    for x1, y1, x2, y2 in lines[i]:
-        cv2.line(output, (x1, y1), (x2, y2), (0, 255, 0), 2)
-cv2.imshow("lines",output)
-cv2.waitKey(0)
-'''
 
 #filtering red
 ''''
