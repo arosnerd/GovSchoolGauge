@@ -18,13 +18,13 @@ img_hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
 #Sets the upper and lower bounds for the mask, and masks black
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 65])
 mask = cv2.inRange(img_hsv, lower_black, upper_black)
-cv2.imshow('Mask',mask)
-cv2.waitKey(0)
+# cv2.imshow('Mask',mask)
+# cv2.waitKey(0)
 
-lower_black, upper_black = np.array([0, 0, 0]), np.array([250, 255, 105])
+lower_black, upper_black = np.array([0, 0, 0]), np.array([250, 255, 125])
 mask2 = cv2.inRange(img_hsv, lower_black, upper_black)
-cv2.imshow('Mask2',mask2)
-cv2.waitKey(0)
+# cv2.imshow('Mask2',mask2)
+# cv2.waitKey(0)
 
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
@@ -33,6 +33,7 @@ blurred = cv2.blur(~mask, (20, 20))
 #Converts Gaussian blurred image to grayscale and applies a threshold to find contours and draw them on the image
 grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
 _, thresh = cv2.threshold(grey, 140, 255, cv2.THRESH_BINARY)
+_, thresh2 = cv2.threshold(grey, 180, 255, cv2.THRESH_BINARY)
 blurred2 = cv2.blur(thresh, (20, 20))
 
 #Uses Hough Circles to find the circle at the center of needle using the black mask, and draws it
@@ -68,6 +69,9 @@ top_dist = math.sqrt((circ_col-first_col)**2 + (circ_row-first_row)**2)
 stds = []
 means = []
 gray_values = []
+stds_end = []
+means_end = []
+gray_values_end = []
 angles = []
 i = 0
 lines = image.copy()
@@ -86,23 +90,41 @@ for col,row in zip(ind_col, ind_row):
     cv2.line(blank, (circ_col, circ_row), (col, row), 255, thickness=2)  # Draw function wants center point in (col, row) order like coordinates
     ind_row, ind_col = np.nonzero(blank)
     b = image[:, :, 0][ind_row, ind_col]
+    length = round(len(b)*0.9)
+    b_end = b[length:]
     g = image[:, :, 1][ind_row, ind_col]
+    g_end = g[length:]
     r = image[:, :, 2][ind_row, ind_col]
+    r_end = r[length:]
     grays = (b.astype(int) + g.astype(int) + r.astype(int))/3  # Compute grayscale with naive equation
+    grays_end = (b_end.astype(int) + g_end.astype(int) + r_end.astype(int))/3
     stds.append(np.std(grays))
     means.append(np.mean(grays))
     gray_values.append(grays)
-df["stds"] = stds
+    stds_end.append(np.std(grays_end))
+    means_end.append(np.mean(grays_end))
+    gray_values_end.append(grays_end)
+
 df["angles"] = angles
+df["stds"] = stds
 df["means"] = means
 df["gray_values"] = gray_values
+df["stds_end"] = stds_end
+df["means_end"] = means_end
+df["gray_values_end"] = gray_values_end
 
 min_mean = df["means"].min()
+max_mean = df["means"].max()
+max_std_end = df["stds_end"].max()
+angle_end = df.loc[df["means"] == min_mean, "angles"].values[0]
+print(angle_end)
 (pt_col, pt_row) = df.loc[df["means"] == min_mean, "indices"].values[0]
 imcopy = image.copy()
 cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=3)  # Draw needle radial line
+(pt_col, pt_row) = df.loc[df["stds_end"] == max_std_end, "indices"].values[0]
+cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=3)
 
-#print("Process finished --- %s seconds ---" % (time.time() - start_time))  
+print("Process finished --- %s seconds ---" % (time.time() - start_time))  
 #Plot mean pixel value as a function of needle "clock angle" (zero degrees is 12 o'clock)
 fig, ax = plt.subplots()
 ax2 = ax.twinx()
@@ -113,37 +135,41 @@ ax.legend(loc="lower left")
 ax.set_xlabel("angle")
 ax.set_ylabel("Metric Value along Radial Line")
 ax.set_title("Locating Gauge Needle from Radial Line Pixel Values", fontsize=16)
-plt.show()
+
 
 
 #show all plots at once
-cv2.imshow('Input', image)
-cv2.waitKey(0)
+# cv2.imshow('Input', image)
+# cv2.waitKey(0)
 
-cv2.imshow('Mask',mask)
-cv2.waitKey(0)
+# cv2.imshow('Mask',mask)
+# cv2.waitKey(0)
 
-cv2.imshow('Mask',mask2)
-cv2.waitKey(0)
+# cv2.imshow('Mask',mask2)
+# cv2.waitKey(0)
 
-cv2.imshow('Blurred Mask',blurred)
-cv2.waitKey(0)
+# cv2.imshow('Blurred Mask',blurred)
+# cv2.waitKey(0)
 
-cv2.imshow('Blurred Thresh',blurred2)
-cv2.waitKey(0)
+# cv2.imshow('Blurred Thresh',blurred2)
+# cv2.waitKey(0)
   
 cv2.imshow('Threshold',thresh)
 cv2.waitKey(0)
 
-cv2.imshow("detected circles", output)
+cv2.imshow('Threshold',thresh2)
 cv2.waitKey(0)
 
-cv2.imshow('lines',lines)
-cv2.waitKey(0)
+# cv2.imshow("detected circles", output)
+# cv2.waitKey(0)
+
+# cv2.imshow('lines',lines)
+# cv2.waitKey(0)
 
 cv2.imshow("result",imcopy)
 cv2.waitKey(0)
 
+plt.show()
 '''
 minLineLength = 60
 maxLineGap = 0
