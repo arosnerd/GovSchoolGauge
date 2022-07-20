@@ -19,9 +19,25 @@ img_hsv = cv2.cvtColor(image,cv2.COLOR_BGR2HSV)
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 65])
 mask = cv2.inRange(img_hsv, lower_black, upper_black)
 
+lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 180])
+mask2 = cv2.inRange(img_hsv, lower_black, upper_black)
+cv2.imshow('mask2',mask2)
+cv2.waitKey(0)
+
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
 blurred = cv2.blur(~mask, (20, 20))
+
+grey = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+_, thresh = cv2.threshold(grey, 140, 255, cv2.THRESH_BINARY)
+contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+#iterates through and draws contours
+cont_out = image.copy()
+for contour in contours:
+    approx = cv2.approxPolyDP(
+        contour, 0.01 * cv2.arcLength(contour, True), True)
+    cv2.drawContours(cont_out, [contour], 0, (0, 0, 255), 5)
 
 #Uses Hough Circles to find the circle at the center of needle using the black mask, and draws it
 output = image.copy()
@@ -39,7 +55,7 @@ if circles is not None:
         # circle outline
         radius = i[2]
         cv2.circle(output, center, radius, (0, 0, 255), 3)
-        circ_rad = radius*7
+        circ_rad = radius*8
 
 blank = np.zeros(image.shape[:2], dtype=np.uint8)
 cv2.circle(blank, (circ_col, circ_row), circ_rad, 255, thickness=1)
@@ -56,19 +72,28 @@ top_dist = math.sqrt((circ_col-first_col)**2 + (circ_row-first_row)**2)
 stds = []
 means = []
 gray_values = []
-stds_end = []
-means_end = []
-gray_values_end = []
+# stds_end = []
+# means_end = []
+# gray_values_end = []
 angles = []
+blk = []
 i = 0
 lines = image.copy()
+tester = image.copy()
 for col,row in zip(ind_col, ind_row):
+    blki = 0
     blank = np.zeros(image.shape[:2], dtype=np.uint8)
+    #angle calculation
     top_point_dist = math.sqrt((col-first_col)**2 + (row-first_row)**2)
     angle = math.acos((((2*top_dist**2)-top_point_dist**2)/(2*top_dist**2)))
     angle = angle*(180/(math.pi))
     if col < first_col:
         angle = (angle * -1)+360
+    #debugging
+    if round(angle) == 93:
+        cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
+    if round(angle) == 180:
+        cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
     angles.append(angle)
     #visualization
     if i%5 == 0:
@@ -76,47 +101,71 @@ for col,row in zip(ind_col, ind_row):
     i = i+1
     cv2.line(blank, (circ_col, circ_row), (col, row), 255, thickness=2)  # Draw function wants center point in (col, row) order like coordinates
     ind_row, ind_col = np.nonzero(blank)
+    if i == 2:
+        z = 0
+        for col,row in zip(ind_col, ind_row):
+            cv2.circle(tester, (col,row), 1, (0 + round(z * 0.3),255,255), thickness=1)
+            z+=1
+
+    if i == 1000:
+        z = 0
+        for col,row in zip(ind_col, ind_row):
+            cv2.circle(tester, (col,row), 1, (0 + round(z * 0.3),255,255), thickness=1)
+            z+=1
+    h = img_hsv[:, :, 0][ind_row, ind_col]
+    s = img_hsv[:, :, 1][ind_row, ind_col]
+    v = img_hsv[:, :, 2][ind_row, ind_col]
+    for k in range(len(h)):
+        if v[k] <= 160:
+            blki += 1
     b = image[:, :, 0][ind_row, ind_col]
-    length = round(len(b)*0.9)
-    b_end = b[length:]
+    #length = round(len(b)*0.8)
+    #b_end = b[length:]
     g = image[:, :, 1][ind_row, ind_col]
-    g_end = g[length:]
+    #g_end = g[length:]
     r = image[:, :, 2][ind_row, ind_col]
-    r_end = r[length:]
+    #r_end = r[length:]
     grays = (b.astype(int) + g.astype(int) + r.astype(int))/3  # Compute grayscale with naive equation
-    grays_end = (b_end.astype(int) + g_end.astype(int) + r_end.astype(int))/3
+    #grays = (b.astype(int) + g.astype(int))/2
+    #grays_end = (b_end.astype(int) + g_end.astype(int) + r_end.astype(int))/3
+    #grays_end = (b_end.astype(int) + g_end.astype(int))/2
+    blk.append(blki)
     stds.append(np.std(grays))
     means.append(np.mean(grays))
     gray_values.append(grays)
-    stds_end.append(np.std(grays_end))
-    means_end.append(np.mean(grays_end))
-    gray_values_end.append(grays_end)
+    # stds_end.append(np.std(grays_end))
+    # means_end.append(np.mean(grays_end))
+    # gray_values_end.append(grays_end)
 
 df["angles"] = angles
 df["stds"] = stds
 df["means"] = means
 df["gray_values"] = gray_values
-df["stds_end"] = stds_end
-df["means_end"] = means_end
-df["gray_values_end"] = gray_values_end
+df["blk"] = blk
+# df["stds_end"] = stds_end
+# df["means_end"] = means_end
+# df["gray_values_end"] = gray_values_end
 
 min_mean = df["means"].min()
-max_mean = df["means"].max()
-max_std_end = df["stds_end"].max()
+#max_std_end = df["stds_end"].max()
 angle_end = df.loc[df["means"] == min_mean, "angles"].values[0]
 print(angle_end)
 (pt_col, pt_row) = df.loc[df["means"] == min_mean, "indices"].values[0]
 imcopy = image.copy()
 cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=3)  # Draw needle radial line
-(pt_col, pt_row) = df.loc[df["stds_end"] == max_std_end, "indices"].values[0]
-cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (0, 255, 0), thickness=3)
+#(pt_col, pt_row) = df.loc[df["stds_end"] == max_std_end, "indices"].values[0]
+#cv2.line(imcopy, (circ_col, circ_row), (pt_col, pt_row), (255, 0, 0), thickness=3)
+cv2.circle(imcopy, (circ_col, circ_row), circ_rad, (0, 0, 255), thickness=3)
 
 print("Process finished --- %s seconds ---" % (time.time() - start_time))  
 #Plot mean pixel value as a function of needle "clock angle" (zero degrees is 12 o'clock)
 fig, ax = plt.subplots()
 ax2 = ax.twinx()
-ax2.scatter(df["angles"], df["stds"], color="r", alpha=0.3, label="pixel std. dev.")
+ax2.scatter(df["angles"], df["stds"], color="r", label="pixel std. dev.", alpha=0.3)
 ax.scatter(df["angles"], df["means"], label="pixel mean", color="b", alpha=0.3)
+ax.scatter(df["angles"], df["blk"], label="black", color="g", alpha=0.3)
+# ax.scatter(df["angles"], df["means_end"], label="pixel mean end", color="g", alpha=0.3)
+# ax.scatter(df["angles"], df["stds_end"], label="pixel std. dev end", color="y", alpha=0.3)
 ax2.legend(loc="lower center")
 ax.legend(loc="lower left")
 ax.set_xlabel("angle")
@@ -126,26 +175,29 @@ ax.set_title("Locating Gauge Needle from Radial Line Pixel Values", fontsize=16)
 
 
 #show all plots at once
-# cv2.imshow('Input', image)
-# cv2.waitKey(0)
+cv2.imshow('Input', image)
+cv2.waitKey(0)
 
-# cv2.imshow('Mask',mask)
-# cv2.waitKey(0)
+cv2.imshow('Mask',mask)
+cv2.waitKey(0)
 
-# cv2.imshow('Mask',mask2)
-# cv2.waitKey(0)
+cv2.imshow('Blurred Mask',blurred)
+cv2.waitKey(0)
 
-# cv2.imshow('Blurred Mask',blurred)
-# cv2.waitKey(0)
+cv2.imshow('Threshold',thresh)
+cv2.waitKey(0)   
 
-# cv2.imshow('Blurred Thresh',blurred2)
-# cv2.waitKey(0)
+cv2.imshow('Contours', cont_out)
+cv2.waitKey(0)
 
-# cv2.imshow("detected circles", output)
-# cv2.waitKey(0)
+cv2.imshow("detected circles", output)
+cv2.waitKey(0)
 
-# cv2.imshow('lines',lines)
-# cv2.waitKey(0)
+cv2.imshow('lines',lines)
+cv2.waitKey(0)
+
+cv2.imshow('test',tester)
+cv2.waitKey(0)
 
 cv2.imshow("result",imcopy)
 cv2.waitKey(0)
