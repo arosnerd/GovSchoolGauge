@@ -21,8 +21,8 @@ mask = cv2.inRange(img_hsv, lower_black, upper_black)
 
 lower_black, upper_black = np.array([0, 0, 0]), np.array([180, 255, 180])
 mask2 = cv2.inRange(img_hsv, lower_black, upper_black)
-cv2.imshow('mask2',mask2)
-cv2.waitKey(0)
+# cv2.imshow('mask2',mask2)
+# cv2.waitKey(0)
 
 #Blurs mask for better circle detection
 #TODO: less manual blur parameter
@@ -76,60 +76,96 @@ gray_values = []
 # means_end = []
 # gray_values_end = []
 angles = []
-blk = []
+blkis = []
+blkes = []
 i = 0
 lines = image.copy()
 tester = image.copy()
 for col,row in zip(ind_col, ind_row):
     blki = 0
+    blke = 0
     blank = np.zeros(image.shape[:2], dtype=np.uint8)
+    
     #angle calculation
     top_point_dist = math.sqrt((col-first_col)**2 + (row-first_row)**2)
     angle = math.acos((((2*top_dist**2)-top_point_dist**2)/(2*top_dist**2)))
     angle = angle*(180/(math.pi))
     if col < first_col:
         angle = (angle * -1)+360
-    #debugging
-    if round(angle) == 93:
-        cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
-    if round(angle) == 180:
-        cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
     angles.append(angle)
+    
     #visualization
     if i%5 == 0:
         cv2.line(lines, (circ_col, circ_row), (col,row), 255, thickness=1)
     i = i+1
     cv2.line(blank, (circ_col, circ_row), (col, row), 255, thickness=2)  # Draw function wants center point in (col, row) order like coordinates
     ind_row, ind_col = np.nonzero(blank)
-    if i == 2:
-        z = 0
-        for col,row in zip(ind_col, ind_row):
-            cv2.circle(tester, (col,row), 1, (0 + round(z * 0.3),255,255), thickness=1)
-            z+=1
 
-    if i == 1000:
-        z = 0
-        for col,row in zip(ind_col, ind_row):
-            cv2.circle(tester, (col,row), 1, (0 + round(z * 0.3),255,255), thickness=1)
-            z+=1
-    h = img_hsv[:, :, 0][ind_row, ind_col]
-    s = img_hsv[:, :, 1][ind_row, ind_col]
-    v = img_hsv[:, :, 2][ind_row, ind_col]
+    h = []
+    s = []
+    v = []
+    b = []
+    g = []
+    r = []
+
+    itercount = 0
+    for col,row in zip(ind_col, ind_row):
+        if row > circ_row:
+            h.insert(0, img_hsv[row, col, 0])
+            s.insert(0, img_hsv[row, col, 1])
+            v.insert(0, img_hsv[row, col, 2])
+            b.insert(0, image[row, col, 0])
+            g.insert(0, image[row, col, 1])
+            r.insert(0, image[row, col, 2])
+        else:
+            h.append(img_hsv[row, col, 0])
+            s.append(img_hsv[row, col, 1])
+            v.append(img_hsv[row, col, 2])
+            b.append(image[row, col, 0])
+            g.append(image[row, col, 1])
+            r.append(image[row, col, 2])
+        if itercount > round(len(ind_col)*0.65) and itercount < round(len(ind_col)*0.85):
+            print('test')
+            cv2.circle(tester, (col, row), 1, (0, 0, 255), thickness=3)
+        itercount += 1
+
+    h = np.array(h)
+    s = np.array(s)
+    v = np.array(v)
+    r = np.array(r)
+    g = np.array(g)
+    b = np.array(b)
+
+    length = round(len(b)*0.85)
+    h_end = h[length:]
+    s_end = s[length:]
+    v_end = v[length:]
+    b_end = b[length:]
+    g_end = g[length:]
+    r_end = r[length:]
+
     for k in range(len(h)):
-        if v[k] <= 160:
+        if v[k] <= 180:
             blki += 1
-    b = image[:, :, 0][ind_row, ind_col]
-    #length = round(len(b)*0.8)
-    #b_end = b[length:]
-    g = image[:, :, 1][ind_row, ind_col]
-    #g_end = g[length:]
-    r = image[:, :, 2][ind_row, ind_col]
-    #r_end = r[length:]
+    
+    for v in range(len(v_end)):
+        if v_end[v] <= 180:
+            blke += 1
+
+
     grays = (b.astype(int) + g.astype(int) + r.astype(int))/3  # Compute grayscale with naive equation
+    
+    #debugging
+    # if round(angle) == 93:
+    #     cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
+    # if round(angle) == 180:
+    #     cv2.line(tester, (circ_col, circ_row), (col,row), (255,0,0), thickness=1)
+    
     #grays = (b.astype(int) + g.astype(int))/2
     #grays_end = (b_end.astype(int) + g_end.astype(int) + r_end.astype(int))/3
     #grays_end = (b_end.astype(int) + g_end.astype(int))/2
-    blk.append(blki)
+    blkis.append(blki)
+    blkes.append(blke)
     stds.append(np.std(grays))
     means.append(np.mean(grays))
     gray_values.append(grays)
@@ -141,7 +177,8 @@ df["angles"] = angles
 df["stds"] = stds
 df["means"] = means
 df["gray_values"] = gray_values
-df["blk"] = blk
+df["blkis"] = blkis
+df["blkes"] = blkes
 # df["stds_end"] = stds_end
 # df["means_end"] = means_end
 # df["gray_values_end"] = gray_values_end
@@ -163,7 +200,8 @@ fig, ax = plt.subplots()
 ax2 = ax.twinx()
 ax2.scatter(df["angles"], df["stds"], color="r", label="pixel std. dev.", alpha=0.3)
 ax.scatter(df["angles"], df["means"], label="pixel mean", color="b", alpha=0.3)
-ax.scatter(df["angles"], df["blk"], label="black", color="g", alpha=0.3)
+ax.scatter(df["angles"], df["blkis"], label="black normal", color="g", alpha=0.3)
+ax.scatter(df["angles"], df["blkes"], label="black end", color="y", alpha=0.3)
 # ax.scatter(df["angles"], df["means_end"], label="pixel mean end", color="g", alpha=0.3)
 # ax.scatter(df["angles"], df["stds_end"], label="pixel std. dev end", color="y", alpha=0.3)
 ax2.legend(loc="lower center")
